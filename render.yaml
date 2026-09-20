@@ -60,3 +60,7 @@ services:
         value: "20"
       - key: NEXT_PUBLIC_WS_URL
         value: wss://draw-app-ws.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://draw-app-web.onrender.com
+      - key: GEMINI_API_KEY
+        sync: false
