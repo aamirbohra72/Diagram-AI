@@ -10,6 +10,10 @@ import {prismaClient} from "@repo/db/client";
 const app = express();
 app.use(express.json());
 
+app.get("/health", (_req, res) => {
+    res.json({ ok: true });
+});
+
 app.post("/signup", async (req, res) => {
 
    const parsedData = CreateUserSchema.safeParse(req.body);
@@ -152,4 +156,8 @@ app.get("/chats/:roomId", async(req, res) => {
    });
 })
 
- app.listen(3005);
+const HTTP_BACKEND_PORT = Number(process.env.PORT ?? 3005);
+
+app.listen(HTTP_BACKEND_PORT, () => {
+    console.log(`[http-backend] listening on ${String(HTTP_BACKEND_PORT)}`);
+});

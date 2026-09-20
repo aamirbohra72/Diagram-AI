@@ -12,6 +12,23 @@
 # Deploy: Dashboard → New → Blueprint → select repo (this file at root).
 
 services:
+  # REST API for authentication, rooms, and chat history.
+  - type: web
+    name: draw-app-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: corepack enable && corepack prepare pnpm@9.0.0 --activate && pnpm install --frozen-lockfile && pnpm exec turbo build --filter=http-backend
+    startCommand: pnpm --filter http-backend start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
   # Realtime canvas sync (HTTP / and /health for Render health checks; WebSocket on same port)
   - type: web
     name: draw-app-ws
