@@ -14,7 +14,7 @@ type DiagramRequest = {
   format?: DiagramFormat;
 };
 
-type Provider = "mistral" | "openai";
+type Provider = "gemini" | "mistral" | "openai";
 
 const STYLE_RULES = `
 Visual style (required — Eraser / colorful software-diagram quality):
@@ -114,9 +114,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    const provider: Provider = process.env.MISTRAL_API_KEY ? "mistral" : "openai";
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     const mistralKey = process.env.MISTRAL_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
+    const provider: Provider = geminiKey ? "gemini" : mistralKey ? "mistral" : "openai";
+    if (provider === "gemini" && !geminiKey) {
+      return NextResponse.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 });
+    }
     if (provider === "mistral" && !mistralKey) {
       return NextResponse.json({ error: "Missing MISTRAL_API_KEY" }, { status: 500 });
     }
@@ -124,7 +128,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Missing MISTRAL_API_KEY or OPENAI_API_KEY. Add one in apps/web/.env.local before using Text to diagram.",
+            "Missing GEMINI_API_KEY, MISTRAL_API_KEY, or OPENAI_API_KEY. Add one in apps/web/.env.local before using Text to diagram.",
         },
         { status: 500 },
       );
@@ -137,7 +141,20 @@ export async function POST(request: Request) {
         : prompt;
 
     const response =
-      provider === "mistral"
+      provider === "gemini"
+        ? await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(geminiKey!)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                contents: [{ role: "user", parts: [{ text: userContent }] }],
+                generationConfig: { temperature: 0.35 },
+              }),
+            },
+          )
+        : provider === "mistral"
         ? await fetch("https://api.mistral.ai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -177,11 +194,14 @@ export async function POST(request: Request) {
     }
 
     const json = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       choices?: Array<{ message?: { content?: string } }>;
       output_text?: string;
     };
     const mermaid =
-      provider === "mistral"
+      provider === "gemini"
+        ? String(json?.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "").trim()
+        : provider === "mistral"
         ? String(json?.choices?.[0]?.message?.content ?? "").trim()
         : String(json?.output_text ?? "").trim();
 
